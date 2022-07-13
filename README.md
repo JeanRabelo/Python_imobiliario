@@ -7,4 +7,5 @@ Um jogo de banco imobiliário simplificado no python
   <li>"python jogo.py"</li>
   <li>"jogo.py"</li>
 </ul>
-<p>As condições de </p>
+<p>A quantidade de jogadores de cada comportamento é criada aleatoriamante.</p>
+<p>Os preços das propriedades e seus valores de aluguel estão em um json separado, chamado "propriedades.json".</p>
