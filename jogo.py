@@ -1,4 +1,5 @@
 import json
+from copy import copy
 from random import randint, shuffle
 from pprint import pprint
 
@@ -7,12 +8,15 @@ def get_json(path):
         data = json.load(json_file)
         return data
 
+def record_json(path, info):
+    with open(path, 'w') as json_file:
+        json.dump(info, json_file)
+
 def pegar_condicoes_iniciais():
     jogadores_agrupados = {'impulsivos':None, 'exigentes':None, 'cautelosos':None, 'aleatórios':None}
     propriedades = get_json('propriedades.json')
     jogadores = []
     for tipo in jogadores_agrupados.keys():
-        # jogadores_agrupados[tipo] = int(input(f'Número de jogadores {tipo}: '))
         jogadores_agrupados[tipo] = randint(1, 6)
     for tipo in jogadores_agrupados.keys():
         for i in range(jogadores_agrupados[tipo]):
@@ -28,21 +32,17 @@ def comprar_se_puder(jogadores, propriedades, n_jogador):
     return [jogadores, propriedades]
 
 def jogada(n_jogador):
+    if jogadores[n_jogador]['saldo'] < 0:
+        return False
     # inicio da jogada
     dado = randint(1, 6)
-    # dado = 1
-    # print(f'dado = {dado}')
     if dado + jogadores[n_jogador]['posicao'] >= 20: # ganhar os 100 da volta no tabuleiro
         jogadores[n_jogador]['saldo'] = jogadores[n_jogador]['saldo'] + 100
-    # espaco
     posicao = (jogadores[n_jogador]['posicao'] + dado) % 20 # nova posição do jogador
     jogadores[n_jogador]['posicao'] = posicao
-    # espaco
     if propriedades[posicao]['dono'] is not None: # se a propriedade tiver dono
         aluguel = propriedades[jogadores[n_jogador]['posicao']]['aluguel']
         n_dono = propriedades[jogadores[n_jogador]['posicao']]['dono']
-        # print(aluguel)
-        # print(n_dono)
         jogadores[n_jogador]['saldo'] = jogadores[n_jogador]['saldo'] - aluguel  # dinheiro pago pelo inquilino
         jogadores[n_dono]['saldo'] = jogadores[n_dono]['saldo'] + aluguel  # dinheiro recebido pelo dono
     else: # se a propriedade não tiver dono
@@ -57,40 +57,41 @@ def jogada(n_jogador):
         elif jogadores[n_jogador]['tipo'] == 'aleatório':
             if randint(0,1) == 1:
                 comprar_se_puder(jogadores, propriedades, n_jogador)
-    # espaco
     # ajustar as propriedades caso o jogador perca
     if jogadores[n_jogador]['saldo'] < 0:
         for propriedade in propriedades:
             if propriedade['dono'] == n_jogador:
                 propriedade['dono'] = None
-    # espaco
     # definir o vencedor caso o jogador ganhe:
-    jogador_venceu = True
+    jogador_venceu_dentro_do_loop = True
     for i_jogador in set(range(0,len(jogadores)))-set([n_jogador]):
         if jogadores[i_jogador]['saldo'] > 0:
-            jogador_venceu = False
-    # espaco
+            jogador_venceu_dentro_do_loop  = False
     # fim da jogada
-    # pprint(jogadores)
-    # pprint(propriedades)
-    return jogador_venceu
+    return jogador_venceu_dentro_do_loop 
 
-[jogadores, propriedades, jogadores_agrupados] = pegar_condicoes_iniciais()
+[jogadores_iniciais, propriedades_iniciais, jogadores_agrupados] = pegar_condicoes_iniciais()
+
+record_json('jogadores_iniciais.json', jogadores_iniciais)
+record_json('propriedades_iniciais.json', propriedades_iniciais)
 
 # início da simulação
 resultados = []
+partidas = 300
 partida = 0
-while partida in range (0,300):
+while partida in range (0, partidas):
     # inicio da partida
-    jogador_venceu = False
+    jogador_venceu_fora_do_loop = False
     rodada = 0
-    while rodada in range (0,1000) and not jogador_venceu:
+    jogadores_iniciais_f = get_json('jogadores_iniciais.json')
+    propriedades = get_json('propriedades_iniciais.json')
+    jogadores = jogadores_iniciais_f
+    while rodada in range (0,1000) and not jogador_venceu_fora_do_loop:
         # inicio da rodada
         n_jogador = 0
-        while n_jogador in range(0, len(jogadores)) and not jogador_venceu:
-            jogador_venceu = jogada(n_jogador)
+        while n_jogador in range(0, len(jogadores)) and not jogador_venceu_fora_do_loop:
+            jogador_venceu_fora_do_loop = jogada(n_jogador)
             n_jogador += 1
-        # print(f'rodada = {rodada + 1}')
         rodada += 1
         # fim da rodada
 
@@ -103,7 +104,7 @@ while partida in range (0,300):
     # fim da partida
     partida += 1
     resultados.append({'vencedor':vencedor, 'rodada':rodada, 'n_jogador': n_jogador})
-    print(f'partida {partida} de 300', end='\r')
+    print(f'partida {partida} de {partidas}', end='\r')
 
 print('\n')
 
@@ -117,7 +118,7 @@ for resultado in resultados:
     soma_turnos += resultado['rodada'] * len(jogadores) + resultado['n_jogador'] + 1
     jogadores_agrupados_vitorias[resultado['vencedor']+'s'] += 1
 
-media_turnos = soma_turnos / 300.0
+media_turnos = soma_turnos / (partidas * 1.0)
 jogadores_agrupados_eficiencia = {}
 max_eficiencia = 0
 mais_eficiente = ''
@@ -127,7 +128,7 @@ for tipo in jogadores_agrupados_vitorias.keys():
         max_eficiencia = 1.0 * jogadores_agrupados_vitorias[tipo] / jogadores_agrupados[tipo]
         mais_eficiente = tipo
     jogadores_agrupados_eficiencia[tipo] = 1.0 * jogadores_agrupados_vitorias[tipo] / jogadores_agrupados[tipo]
-    jogadores_agrupados_vitorias[tipo] = str(round(jogadores_agrupados_vitorias[tipo] / 300.00 * 100)) + '%' 
+    jogadores_agrupados_vitorias[tipo] = str(round(jogadores_agrupados_vitorias[tipo] / (partidas) * 100.00)) + '%' 
 
 
 print(f'timeouts = {timeouts}')
@@ -136,6 +137,3 @@ print('porcentagem de vitórias de acordo com o comportamento dos jogadores')
 print(jogadores_agrupados_vitorias)
 print(f'perfil mais vitorioso (maior quantidade de vitorias pela quantidade de jogadores) = {mais_eficiente}')
 # fim da simulação 
-print(len(jogadores))
-print(jogadores_agrupados_eficiencia)
-print(jogadores_agrupados)
